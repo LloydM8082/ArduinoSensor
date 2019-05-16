@@ -36,8 +36,29 @@ const int VIS_WARN = 500;
 const int IR_WARN = 1000;
 const int TMP_WARN = 24; //C
 const int HUM_WARN = 30; //%
+//sensorWarning[]: [0]t, [1]UV_WARN, [2]VIS_WARN,
+//            [3]IR_WARN,[4]TMP_WARN,[5]HUM_WARN  
+const float sensorWarning[6] = {0, UV_WARN,VIS_WARN,IR_WARN,TMP_WARN,HUM_WARN};
+const String warningTxt[6] = {"0","UV","VIS","IR","TMP","HUM"};
 
-String menuOption = "1";
+float t = 0+millis();
+float UV;
+float VIS;
+float IR;
+float TMP;
+float HUM;
+
+bool danger = false;
+
+//sensor[]: [0]t, [1]UV, [2]VIS,
+//          [3]IR,[4]TMP,[5]HUM
+float sensor[6]; 
+
+int decimal = 2;
+char seperator = ':';
+char eol = '/';
+
+String dataRequest = "1";
 long time0;
 String outputString = " ";
 
@@ -73,32 +94,24 @@ void setup() {
 //It defines the interaction between the components you selected.
 //After setup, it runs over and over again, in an eternal loop.
 void loop() {
-  if (millis() > time0 + timeout) {
+  getSensorData();
+  checkWarnings();
+  
+  if(millis() > time0 + timeout){
     time0 = millis();
     displaySensorVals();
   }
-  else if (menuOption == "1") {
+  else if (danger || dataRequest == "1") {
     displaySensorVals();
-    menuOption = "0";
   }
 
-  menuOption = menu();
-  checkWarnings();
+  dataRequest = readBT();
 
 }
 
 // Menu function for selecting the components to be tested
 // Follow serial monitor for instrcutions
-String menu() {
-
-  //bthc06.println(F("\nTo request data, Enter '1' "));
-  //bthc06.println(F("\n"));
-  //while (!bthc06.available());
-
-  // Read data from serial monitor if received
-  //Serial.println(time0 + timeout);
-  //Serial.println(millis());
-  // HC - 06 Bluetooth Serial Module - Test Code
+String readBT() {
   String bthc06Str = "";
   //Receive String from bluetooth device
   while (bthc06.available())
@@ -110,81 +123,57 @@ String menu() {
     Serial.print("BT Raw Data: ");
     Serial.println(bthc06Str);
   }
-  //Send sensor data to Bluetooth device
-  //bthc06.println("PUT YOUR SENSOR DATA HERE");
-
-  //char c = bthc06.read();
   return bthc06Str;
 }
 
+void getSensorData(){
+  sensor[0] = int(millis());
+  sensor[1] = getUV();
+  sensor[2] = getVIS();
+  sensor[3] = getIR();
+  sensor[4] = getTMP();
+  sensor[5] = getHUM();
+}
 
 void displaySensorVals() {
-  float t = 0+millis();
-  float UV = getUV();
-  float VIS = getVIS();
-  float IR = getIR();
-  float TMP = getTMP();
-  float HUM = getHUM();
-  
+  int i;
   outputString = "";
-  outputString += String(t, 0);
-  outputString += F(":");
-  outputString += String(UV, 2);
-  outputString += F(":");
-  outputString += String(VIS, 0);
-  outputString += F(":");
-  outputString += String(IR, 0);
-  outputString += F(":");
-  outputString += String(TMP, 1);
-  outputString += F(":");
-  outputString += String(HUM, 1);
-  outputString += F("/");
+  
+  for(i = 0; i < 6; i++){
+    outputString += String(sensor[i], decimal);
+    if (i < 6-1){
+      outputString += seperator;
+    } else {
+      outputString += eol;
+    }
+  }
 
-  Serial.println(outputString);
-  bthc06.println(outputString);
+  displayToSerialBT(outputString);
+  delay(1000);
 }
 
 void checkWarnings(){
+  int i;
+  danger = false;
+  outputString = "WARNINGS:";
 
-  bool danger = false;
-
-  outputString = "WARNINGS: ";
-  
-  float UV = getUV();
-  float VIS = getVIS();
-  float IR = getIR();
-  float TMP = getTMP();
-  float HUM = getHUM();
-
-  if (UV > UV_WARN){
-    danger = true;
-    outputString += F("UV ");
-  }
-  if (VIS > VIS_WARN){
-    danger = true;
-    outputString += F("VIS ");
-  }
-  if (IR > IR_WARN){
-    danger = true;
-    outputString += F("IR ");
-  }
-  if (TMP > TMP_WARN){
-    danger = true;
-    outputString += F("TMP ");
-  }
-  if (HUM > HUM_WARN){
-    danger = true;
-    outputString += F("HUM ");
-
+  for(i = 1; i < 6; i++){
+    if(sensor[i]>sensorWarning[i]){
+      danger = true;
+      outputString += warningTxt[i]+' ';
+    }
   }
 
   if (danger){
-    Serial.println(outputString);
-    bthc06.println(outputString);
-    displaySensorVals();
-    delay(1000);
+    displayToSerialBT(outputString);
   }
   
+}
+
+void displayToSerialBT(String msg){
+  Serial.println(msg);
+  bthc06.println(msg);
+  return true;
 }
 
 float getUV(){
@@ -212,47 +201,3 @@ float getHUM(){
   // Reading humidity in %
   return dht.readHumidity();
 }
-
-/*******************************************************
-
-     Circuito.io is an automatic generator of schematics and code for off
-     the shelf hardware combinations.
-
-     Copyright (C) 2016 Roboplan Technologies Ltd.
-
-     This program is free software: you can redistribute it and/or modify
-     it under the terms of the GNU General Public License as published by
-     the Free Software Foundation, either version 3 of the License, or
-     (at your option) any later version.
-
-     This program is distributed in the hope that it will be useful,
-     but WITHOUT ANY WARRANTY; without even the implied warranty of
-     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-     GNU General Public License for more details.
-
-     You should have received a copy of the GNU General Public License
-     along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-     In addition, and without limitation, to the disclaimers of warranties
-     stated above and in the GNU General Public License version 3 (or any
-     later version), Roboplan Technologies Ltd. ("Roboplan") offers this
-     program subject to the following warranty disclaimers and by using
-     this program you acknowledge and agree to the following:
-     THIS PROGRAM IS PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS, AND
-     WITHOUT WARRANTIES OF ANY KIND EITHER EXPRESS OR IMPLIED.  ROBOPLAN
-     HEREBY DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT
-     NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, TITLE, FITNESS
-     FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND THOSE ARISING BY
-     STATUTE OR FROM A COURSE OF DEALING OR USAGE OF TRADE.
-     YOUR RELIANCE ON, OR USE OF THIS PROGRAM IS AT YOUR SOLE RISK.
-     ROBOPLAN DOES NOT GUARANTEE THAT THE PROGRAM WILL BE FREE OF, OR NOT
-     SUSCEPTIBLE TO, BUGS, SECURITY BREACHES, OR VIRUSES. ROBOPLAN DOES
-     NOT WARRANT THAT YOUR USE OF THE PROGRAM, INCLUDING PURSUANT TO
-     SCHEMATICS, INSTRUCTIONS OR RECOMMENDATIONS OF ROBOPLAN, WILL BE SAFE
-     FOR PERSONAL USE OR FOR PRODUCTION OR COMMERCIAL USE, WILL NOT
-     VIOLATE ANY THIRD PARTY RIGHTS, WILL PROVIDE THE INTENDED OR DESIRED
-     RESULTS, OR OPERATE AS YOU INTENDED OR AS MAY BE INDICATED BY ROBOPLAN.
-     YOU HEREBY WAIVE, AGREE NOT TO ASSERT AGAINST, AND RELEASE ROBOPLAN,
-     ITS LICENSORS AND AFFILIATES FROM, ANY CLAIMS IN CONNECTION WITH ANY OF
-     THE ABOVE.
-********************************************************/

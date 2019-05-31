@@ -16,9 +16,13 @@
 //TIME|UV|VIS|IR|TMP|HUM//
 //////////////////////////
 
-//Do we need to be able to request on demand
-//Potential for warnings on 
-//DO WE NEED A TIMESTAMP
+////Arduino features 
+//Warnings
+//User set warning values
+//User set time delay on data
+//Request data manually
+//
+//
 
 // Global variables and defines
 
@@ -29,34 +33,30 @@ Adafruit_SI1145 uv = Adafruit_SI1145();
 
 
 // define vars for testing menu
-const int timeout = 5000;       //define timeout of 10 sec
+const int DATA_TIMEOUT = 5000;       //define timeout of 5 sec
+const int WARN_TIMEOUT = 2000;       //define timeout of 2 sec
 
 const int UV_WARN = 1;
 const int VIS_WARN = 500;
 const int IR_WARN = 1000;
-const int TMP_WARN = 24; //C
-const int HUM_WARN = 30; //%
+const int TMP_WARN = 25; //C
+const int HUM_WARN = 50; //%
 //sensorWarning[]: [0]t, [1]UV_WARN, [2]VIS_WARN,
 //            [3]IR_WARN,[4]TMP_WARN,[5]HUM_WARN  
 const float sensorWarning[6] = {0, UV_WARN,VIS_WARN,IR_WARN,TMP_WARN,HUM_WARN};
 const String warningTxt[6] = {"0","UV","VIS","IR","TMP","HUM"};
-
-float t = 0+millis();
-float UV;
-float VIS;
-float IR;
-float TMP;
-float HUM;
 
 bool danger = false;
 
 //sensor[]: [0]t, [1]UV, [2]VIS,
 //          [3]IR,[4]TMP,[5]HUM
 float sensor[6]; 
+int arraySize = sizeof(sensor) / sizeof(sensor[0]);
 
 int decimal = 2;
 char seperator = ':';
 char eol = '/';
+char warnSep = ' ';
 
 String dataRequest = "1";
 long time0;
@@ -76,8 +76,7 @@ void setup() {
   //Pair and connect to 'HC-06', the default password for connection is '1234'.
   //You should see this message from your arduino on your android device
   bthc06.begin(9600);
-  Serial.println("HC-06 Bluetooth: On");
-  bthc06.println("HC-06 Bluetooth: On");
+  displayToSerialBT("HC-06 Bluetooth: On");
 
   dht.begin();
   Serial.println("DHT22/11 Humidity and Temperature Sensor: On");
@@ -90,14 +89,14 @@ void setup() {
 
 }
 
-// Main logic of your circuit.
-//It defines the interaction between the components you selected.
+// Main logic of the circuit.
+//It defines the interaction between the components selected.
 //After setup, it runs over and over again, in an eternal loop.
 void loop() {
   getSensorData();
   checkWarnings();
   
-  if(millis() > time0 + timeout){
+  if(millis() > time0 + DATA_TIMEOUT){
     time0 = millis();
     displaySensorVals();
   }
@@ -109,8 +108,6 @@ void loop() {
 
 }
 
-// Menu function for selecting the components to be tested
-// Follow serial monitor for instrcutions
 String readBT() {
   String bthc06Str = "";
   //Receive String from bluetooth device
@@ -127,7 +124,7 @@ String readBT() {
 }
 
 void getSensorData(){
-  sensor[0] = int(millis());
+  sensor[0] = float(millis());
   sensor[1] = getUV();
   sensor[2] = getVIS();
   sensor[3] = getIR();
@@ -139,9 +136,9 @@ void displaySensorVals() {
   int i;
   outputString = "";
   
-  for(i = 0; i < 6; i++){
+  for(i = 0; i < arraySize; i++){
     outputString += String(sensor[i], decimal);
-    if (i < 6-1){
+    if (i < arraySize-1){
       outputString += seperator;
     } else {
       outputString += eol;
@@ -149,7 +146,7 @@ void displaySensorVals() {
   }
 
   displayToSerialBT(outputString);
-  delay(1000);
+  delay(WARN_TIMEOUT);
 }
 
 void checkWarnings(){
@@ -157,10 +154,10 @@ void checkWarnings(){
   danger = false;
   outputString = "WARNINGS:";
 
-  for(i = 1; i < 6; i++){
+  for(i = 1; i < arraySize; i++){
     if(sensor[i]>sensorWarning[i]){
       danger = true;
-      outputString += warningTxt[i]+' ';
+      outputString += warningTxt[i]+warnSep;
     }
   }
 
